@@ -1,0 +1,23 @@
+# Python-specific ignores
+*.pyc
+__pycache__/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Development environment ignores
+.vscode/
+.idea/
+*.sublime-*
+
+# Dependency management ignores
+pip-lock.txt
+pipenv.lock
+requirements.txt
+
+*.log
+*.swp
+Thumbs.db
+.DS_Store
