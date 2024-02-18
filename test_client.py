@@ -1,6 +1,6 @@
 import pytest
 import respx
-from httpx import codes, Response, TimeoutException
+from httpx import codes, Response
 
 from client import ClusterAPIConsumer
 
@@ -10,19 +10,25 @@ class TestClusterAPIConsumer:
     def setup_method(self):
         self.client = ClusterAPIConsumer()
 
-    def _create_success_post_mock(self, endpoint: str, name: str):
-        return respx.post(endpoint, name=name).mock(
+    def _create_success_post_mock(self, endpoint: str):
+        return respx.post(endpoint).mock(
             return_value=self._create_group_success_response()
         )
 
-    def _create_failure_post_mock(self, endpoint: str, name: str):
-        return respx.post(endpoint, name=name).mock(
+    def _create_failure_post_mock(self, endpoint: str):
+        return respx.post(endpoint).mock(
             return_value=self._create_bad_request_response()
         )
 
     def _delete_success_mock(self, endpoint: str):
         mock = respx.delete(endpoint).mock(
-            return_value=self._create_group_success_response()
+            return_value=self._delete_group_success_response()
+        )
+        return mock
+
+    def _delete_failure_mock(self, endpoint: str):
+        mock = respx.delete(endpoint).mock(
+            return_value=self._internal_server_error_failure_response()
         )
         return mock
 
@@ -47,23 +53,7 @@ class TestClusterAPIConsumer:
         return response
 
     @staticmethod
-    def mock_success_delete_response():
-        response = Response(
-            status_code=codes.OK, json={"message": "Group deleted successfully"}
-        )
-        return response
-
-    @staticmethod
-    def mock_success_get_response(group_id: str):
-        response = Response(status_code=codes.OK, json={"groupId": group_id})
-        return response
-
-    @staticmethod
-    def mock_timeout_response():
-        raise TimeoutException("Request timed out")
-
-    @staticmethod
-    def mock_internal_server_error_response():
+    def _internal_server_error_failure_response():
         response = Response(status_code=codes.INTERNAL_SERVER_ERROR)
         return response
 
@@ -72,7 +62,7 @@ class TestClusterAPIConsumer:
         group_id = "example_group_id"
         routes = [
             self._create_success_post_mock(
-                endpoint=f"https://{host}{self.client.endpoint_group}", name=host
+                endpoint=f"https://{host}{self.client.endpoint_group}"
             )
             for host in self.client.hosts
         ]
@@ -88,15 +78,12 @@ class TestClusterAPIConsumer:
         routes = [
             self._create_success_post_mock(
                 endpoint=f"https://{self.client.hosts[0]}{self.client.endpoint_group}",
-                name=self.client.hosts[0],
             ),
             self._create_success_post_mock(
                 endpoint=f"https://{self.client.hosts[1]}{self.client.endpoint_group}",
-                name=self.client.hosts[1],
             ),
             self._create_failure_post_mock(
                 endpoint=f"https://{self.client.hosts[2]}{self.client.endpoint_group}",
-                name=self.client.hosts[2],
             ),
         ]
         for host in self.client.hosts:
@@ -105,6 +92,45 @@ class TestClusterAPIConsumer:
             )
 
         result = await self.client.create_group(group_id)
+        assert result is False
+        for route in routes:
+            assert route.called
+
+    @respx.mock
+    async def test_success_delete_group(self):
+        group_id = "example_group_id"
+        routes = [
+            self._delete_success_mock(
+                endpoint=f"https://{host}{self.client.endpoint_group}?groupId={group_id}",
+            )
+            for host in self.client.hosts
+        ]
+
+        result = await self.client.delete_group(group_id)
+        assert result is True
+        for route in routes:
+            assert route.called
+
+    @respx.mock
+    async def test_failure_delete_group(self):
+        group_id = "example_group_id"
+        routes = [
+            self._delete_success_mock(
+                endpoint=f"https://{self.client.hosts[0]}{self.client.endpoint_group}?groupId={group_id}",
+            ),
+            self._delete_success_mock(
+                endpoint=f"https://{self.client.hosts[1]}{self.client.endpoint_group}?groupId={group_id}",
+            ),
+            self._delete_failure_mock(
+                endpoint=f"https://{self.client.hosts[2]}{self.client.endpoint_group}?groupId={group_id}",
+            ),
+        ]
+        for host in self.client.hosts:
+            self._create_success_post_mock(
+                endpoint=f"https://{host}{self.client.endpoint_group}",
+            )
+
+        result = await self.client.delete_group(group_id)
         assert result is False
         for route in routes:
             assert route.called
