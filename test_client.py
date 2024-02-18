@@ -1,9 +1,11 @@
+import pytest
 import respx
 from httpx import codes, Response, TimeoutException
 
 from client import ClusterAPIConsumer
 
 
+@pytest.mark.asyncio
 class TestClusterAPIConsumer:
     def setup_method(self):
         self.client = ClusterAPIConsumer()
@@ -66,7 +68,7 @@ class TestClusterAPIConsumer:
         return response
 
     @respx.mock
-    def test_success_create_group(self):
+    async def test_success_create_group(self):
         group_id = "example_group_id"
         routes = [
             self._create_success_post_mock(
@@ -75,13 +77,13 @@ class TestClusterAPIConsumer:
             for host in self.client.hosts
         ]
 
-        result = self.client.create_group(group_id)
+        result = await self.client.create_group(group_id)
         assert result is True
         for route in routes:
             assert route.called
 
     @respx.mock
-    def test_failure_create_group(self):
+    async def test_failure_create_group(self):
         group_id = "example_group_id"
         routes = [
             self._create_success_post_mock(
@@ -102,7 +104,7 @@ class TestClusterAPIConsumer:
                 endpoint=f"https://{host}{self.client.endpoint_group}?groupId={group_id}",
             )
 
-        result = self.client.create_group(group_id)
+        result = await self.client.create_group(group_id)
         assert result is False
         for route in routes:
             assert route.called

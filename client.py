@@ -20,24 +20,24 @@ class ClusterAPIConsumer:
             raise ValueError("HOSTS environment variable not set")
         return hosts_str.split(",")
 
-    def create_group(self, group_id: str) -> bool:
+    async def create_group(self, group_id: str) -> bool:
         responses: List[Response] = []
-        with httpx.Client() as client:
+        async with httpx.AsyncClient() as client:
             for host in self.hosts:
                 try:
-                    response = client.post(
+                    response = await client.post(
                         url=f"https://{host}{self.endpoint_group}",
                         json={"groupId": group_id},
                     )
 
                     if response.status_code != httpx.codes.CREATED:
-                        self.rollback_created_groups(group_id, responses)
+                        await self.rollback_created_groups(group_id, responses)
                         return False
 
                     responses.append(response)
 
                 except httpx.RequestError:
-                    self.rollback_created_groups(group_id, responses)
+                    await self.rollback_created_groups(group_id, responses)
                     raise
 
         return all(
@@ -54,12 +54,12 @@ class ClusterAPIConsumer:
             except httpx.RequestError:
                 raise
 
-    def rollback_created_groups(self, group_id: str, responses: list[Response]):
-        with httpx.Client() as client:
+    async def rollback_created_groups(self, group_id: str, responses: list[Response]):
+        async with httpx.AsyncClient() as client:
             for response in responses:
                 if response.status_code == codes.CREATED:
                     host = response.request.url.host
-                    client.delete(
+                    await client.delete(
                         url=f"https://{host}{self.endpoint_group}",
                         params={"groupId": group_id},
                     )
