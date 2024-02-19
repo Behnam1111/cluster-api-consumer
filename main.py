@@ -1,13 +1,15 @@
 import asyncio
+import logging
 import argparse
 from client import ClusterAPIConsumer
 
-import logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+
+def setup_logging():
+    logging.basicConfig(level=logging.INFO)
+    return logging.getLogger(__name__)
 
 
-def main():
+def parse_args():
     parser = argparse.ArgumentParser(description="Cluster API Consumer")
     parser.add_argument(
         "action",
@@ -15,19 +17,33 @@ def main():
         help="Action to perform: create or delete",
     )
     parser.add_argument("group_id", type=str, help="Group ID")
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    consumer = ClusterAPIConsumer()
 
+async def perform_action(consumer, action, group_id):
     action_map = {"create": consumer.create_group, "delete": consumer.delete_group}
+    action_func = action_map.get(action)
+    if not action_func:
+        raise ValueError(f"Invalid action: {action}")
 
-    action_func = action_map.get(args.action)
-    if action_func:
-        result = asyncio.run(action_func(args.group_id))
-        if result:
-            logger.info(f"Group '{args.group_id}' {args.action}d successfully.")
-        else:
-            logger.error(f"Failed to {args.action} group '{args.group_id}'.")
+    result = await action_func(group_id)
+    return result
+
+
+async def main_async(args, logger):
+    consumer = ClusterAPIConsumer()
+    result = await perform_action(consumer, args.action, args.group_id)
+    if result:
+        logger.info(f"Group '{args.group_id}' {args.action}d successfully.")
+    else:
+        logger.error(f"Failed to {args.action} group '{args.group_id}'.")
+
+
+def main():
+    logger = setup_logging()
+    args = parse_args()
+
+    asyncio.run(main_async(args, logger))
 
 
 if __name__ == "__main__":
