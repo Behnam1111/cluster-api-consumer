@@ -4,7 +4,7 @@ from typing import List
 from typing import Optional
 from dotenv import load_dotenv
 
-from config import get_hosts
+from config import Config
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class ClusterAPIConsumer:
     def __init__(self):
-        self.hosts = get_hosts()
+        self.hosts = Config().get_hosts()
         self.endpoint_group = "/v1/group/"
 
     async def create_group(self, group_id: str) -> bool:
@@ -44,7 +44,7 @@ class ClusterAPIConsumer:
         self, client: httpx.AsyncClient, method: str, host: str, group_id: str
     ) -> Optional[httpx.Response]:
         """Helper method to make a request to the API."""
-        url = f"https://{host.strip()}{self.endpoint_group}"
+        url = f"http://{host.strip()}{self.endpoint_group}"
         try:
             if method == "post":
                 return await client.post(url, json={"groupId": group_id})
@@ -61,8 +61,9 @@ class ClusterAPIConsumer:
         async with httpx.AsyncClient() as client:
             for response in responses:
                 if response and response.status_code == httpx.codes.CREATED:
+                    host = response.request.url.host + ":" + str(response.request.url.port)
                     await self.make_request(
-                        client, "delete", response.request.url.host, group_id
+                        client, "delete", host, group_id
                     )
 
     async def rollback_deleted_groups(
