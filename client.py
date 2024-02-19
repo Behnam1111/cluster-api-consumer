@@ -61,10 +61,10 @@ class ClusterAPIConsumer:
         async with httpx.AsyncClient() as client:
             for response in responses:
                 if response and response.status_code == httpx.codes.CREATED:
-                    host = response.request.url.host + ":" + str(response.request.url.port)
-                    await self.make_request(
-                        client, "delete", host, group_id
+                    host = (
+                        response.request.url.host + ":" + str(response.request.url.port)
                     )
+                    await self.make_request(client, "delete", host, group_id)
 
     async def rollback_deleted_groups(
         self, group_id: str, responses: List[httpx.Response]

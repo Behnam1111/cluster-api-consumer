@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cluster-api-consumer
+spec:
+  selector:
+    matchLabels:
+      service: cluster-api-consumer
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        service: cluster-api-consumer
+    spec:
+      containers:
+        - name: cluster-api-consumer
+          image: behnambahrami1111/cluster-api-consumer:1.0
+          command: ["/bin/sh"]
+          args: ["-c", "tail -f /dev/null"]
