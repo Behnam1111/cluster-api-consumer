@@ -9,6 +9,7 @@ from client import ClusterAPIConsumer
 class TestClusterAPIConsumer:
     def setup_method(self):
         self.client = ClusterAPIConsumer()
+        self.group_id = "example_group_id"
 
     def _create_success_post_mock(self, endpoint: str):
         return respx.post(endpoint).mock(
@@ -74,7 +75,6 @@ class TestClusterAPIConsumer:
 
     @respx.mock
     async def test_failure_create_group(self):
-        group_id = "example_group_id"
         routes = [
             self._create_success_post_mock(
                 endpoint=f"https://{self.client.hosts[0]}{self.client.endpoint_group}",
@@ -88,41 +88,39 @@ class TestClusterAPIConsumer:
         ]
         for host in self.client.hosts:
             self._delete_success_mock(
-                endpoint=f"https://{host}{self.client.endpoint_group}?groupId={group_id}",
+                endpoint=f"https://{host}{self.client.endpoint_group}?groupId={self.group_id}",
             )
 
-        result = await self.client.create_group(group_id)
+        result = await self.client.create_group(self.group_id)
         assert result is False
         for route in routes:
             assert route.called
 
     @respx.mock
     async def test_success_delete_group(self):
-        group_id = "example_group_id"
         routes = [
             self._delete_success_mock(
-                endpoint=f"https://{host}{self.client.endpoint_group}?groupId={group_id}",
+                endpoint=f"https://{host}{self.client.endpoint_group}?groupId={self.group_id}",
             )
             for host in self.client.hosts
         ]
 
-        result = await self.client.delete_group(group_id)
+        result = await self.client.delete_group(self.group_id)
         assert result is True
         for route in routes:
             assert route.called
 
     @respx.mock
     async def test_failure_delete_group(self):
-        group_id = "example_group_id"
         routes = [
             self._delete_success_mock(
-                endpoint=f"https://{self.client.hosts[0]}{self.client.endpoint_group}?groupId={group_id}",
+                endpoint=f"https://{self.client.hosts[0]}{self.client.endpoint_group}?groupId={self.group_id}",
             ),
             self._delete_success_mock(
-                endpoint=f"https://{self.client.hosts[1]}{self.client.endpoint_group}?groupId={group_id}",
+                endpoint=f"https://{self.client.hosts[1]}{self.client.endpoint_group}?groupId={self.group_id}",
             ),
             self._delete_failure_mock(
-                endpoint=f"https://{self.client.hosts[2]}{self.client.endpoint_group}?groupId={group_id}",
+                endpoint=f"https://{self.client.hosts[2]}{self.client.endpoint_group}?groupId={self.group_id}",
             ),
         ]
         for host in self.client.hosts:
@@ -130,7 +128,7 @@ class TestClusterAPIConsumer:
                 endpoint=f"https://{host}{self.client.endpoint_group}",
             )
 
-        result = await self.client.delete_group(group_id)
+        result = await self.client.delete_group(self.group_id)
         assert result is False
         for route in routes:
             assert route.called
