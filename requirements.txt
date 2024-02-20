@@ -3,10 +3,11 @@ pytest==8.0.1
 pytest-mock==3.12.0
 tenacity==8.2.3
 python-dotenv==1.0.1
-ruff==0.2.1
 respx==0.20.2
 pytest-asyncio==0.23.5
-argparse
 asyncio==3.4.3
 rq==1.15.1
 redis==5.0.1
+rq-dashboard==0.6.7.2
+fastapi==0.109.2
+uvicorn==0.27.1

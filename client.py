@@ -3,7 +3,6 @@ import logging
 from redis import Redis
 from typing import List
 from rq import Queue, Retry
-from typing import Optional
 from datetime import timedelta
 from dotenv import load_dotenv
 
@@ -43,23 +42,23 @@ class ClusterAPIConsumer:
 
     async def make_request(
         self, method: str, host: str, group_id: str
-    ) -> Optional[httpx.Response]:
-        async with httpx.AsyncClient() as client:
+    ) -> httpx.Response | None:
+        async with httpx.AsyncClient(trust_env=False) as async_client:
             url = f"http://{host.strip()}{self.endpoint_group}"
             try:
                 if method == "post":
-                    return await client.post(url, json={"groupId": group_id})
+                    return await async_client.post(url, json={"groupId": group_id})
                 elif method == "delete":
-                    return await client.delete(url, params={"groupId": group_id})
+                    return await async_client.delete(url, params={"groupId": group_id})
             except httpx.RequestError as e:
                 logger.error(f"Request error: {e}")
             return None
-        
+
     def _create_group_id_was_successful(self, response: httpx.Response | None) -> bool:
         if response and response.status_code == httpx.codes.CREATED:
             return True
         return False
-    
+
     def _delete_group_id_was_successful(self, response: httpx.Response | None) -> bool:
         if response and response.status_code == httpx.codes.OK:
             return True
@@ -88,4 +87,3 @@ class ClusterAPIConsumer:
                     retry=Retry(max=3, interval=10),
                     args=("post", host, group_id),
                 )
-
