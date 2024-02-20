@@ -22,7 +22,7 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   name: fastapi-config
-                  key: HOSTS_PATH
+                  key: HOSTS
 
 ---
 apiVersion: v1
@@ -30,4 +30,4 @@ kind: ConfigMap
 metadata:
   name: fastapi-config
 data:
-  HOSTS_PATH: "127.0.0.1:8001,127.0.0.1:8002,127.0.0.1:8003"
+  HOSTS: "127.0.0.1:8001,127.0.0.1:8002,127.0.0.1:8003"
