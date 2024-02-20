@@ -1,7 +1,10 @@
 import httpx
 import logging
+from redis import Redis
 from typing import List
+from rq import Queue, Retry
 from typing import Optional
+from datetime import timedelta
 from dotenv import load_dotenv
 
 from config import Config
@@ -9,81 +12,80 @@ from config import Config
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+redis_conn = Redis(decode_responses=True)
+q = Queue(connection=redis_conn)
 
 
 class ClusterAPIConsumer:
     def __init__(self):
         self.hosts = Config().get_hosts()
-        self.endpoint_group = "/v1/group/"
+        self.endpoint_group = "/v1/group"
 
     async def create_group(self, group_id: str) -> bool:
-        """Create a group across all hosts."""
-        responses: List[httpx.Response] = []
-        async with httpx.AsyncClient() as client:
-            for host in self.hosts:
-                response = await self.make_request(client, "post", host, group_id)
-                if not response or response.status_code != httpx.codes.CREATED:
-                    await self.rollback_created_groups(group_id, responses)
-                    return False
-                responses.append(response)
+        successful_created_hosts: List[str] = []
+        for host in self.hosts:
+            response = await self.make_request("post", host, group_id)
+            if not self._create_group_id_was_successful(response):
+                await self.rollback_created_groups(group_id, successful_created_hosts)
+                return False
+            successful_created_hosts.append(host)
         return True
 
     async def delete_group(self, group_id: str) -> bool:
-        """Delete a group across all hosts."""
-        responses: List[httpx.Response] = []
-        async with httpx.AsyncClient() as client:
-            for host in self.hosts:
-                response = await self.make_request(client, "delete", host, group_id)
-                if not response or response.status_code != httpx.codes.OK:
-                    await self.rollback_deleted_groups(group_id, responses)
-                    return False
-                responses.append(response)
+        successful_deleted_hosts: List[str] = []
+        for host in self.hosts:
+            response = await self.make_request("delete", host, group_id)
+            if not self._delete_group_id_was_successful(response):
+                await self.rollback_deleted_groups(group_id, successful_deleted_hosts)
+                return False
+            successful_deleted_hosts.append(host)
         return True
 
     async def make_request(
-        self, client: httpx.AsyncClient, method: str, host: str, group_id: str
+        self, method: str, host: str, group_id: str
     ) -> Optional[httpx.Response]:
-        """Helper method to make a request to the API."""
-        url = f"http://{host.strip()}{self.endpoint_group}"
-        try:
-            if method == "post":
-                return await client.post(url, json={"groupId": group_id})
-            elif method == "delete":
-                return await client.delete(url, params={"groupId": group_id})
-        except httpx.RequestError as e:
-            logger.error(f"Request error: {e}")
-        return None
+        async with httpx.AsyncClient() as client:
+            url = f"http://{host.strip()}{self.endpoint_group}"
+            try:
+                if method == "post":
+                    return await client.post(url, json={"groupId": group_id})
+                elif method == "delete":
+                    return await client.delete(url, params={"groupId": group_id})
+            except httpx.RequestError as e:
+                logger.error(f"Request error: {e}")
+            return None
+        
+    def _create_group_id_was_successful(self, response: httpx.Response | None) -> bool:
+        if response and response.status_code == httpx.codes.CREATED:
+            return True
+        return False
+    
+    def _delete_group_id_was_successful(self, response: httpx.Response | None) -> bool:
+        if response and response.status_code == httpx.codes.OK:
+            return True
+        return False
 
     async def rollback_created_groups(
-        self, group_id: str, responses: List[httpx.Response]
+        self, group_id: str, hosts_to_rollback: List[str]
     ):
-        """Rollback group creation in case of failure."""
-        async with httpx.AsyncClient() as client:
-            for response in responses:
-                if response and response.status_code == httpx.codes.CREATED:
-                    host = (
-                        response.request.url.host + ":" + str(response.request.url.port)
-                    )
-                    await self.make_request(client, "delete", host, group_id)
+        for host in hosts_to_rollback:
+            result = await self.make_request("delete", host, group_id)
+            if not self._delete_group_id_was_successful(result):
+                q.enqueue_in(
+                    time_delta=timedelta(seconds=60),
+                    func=self.rollback_created_groups,
+                    args=(group_id, [host]),
+                )
 
     async def rollback_deleted_groups(
-        self, group_id: str, responses: List[httpx.Response]
+        self, group_id: str, hosts_to_rollback: List[str]
     ):
-        """Rollback group deletion in case of failure."""
-        async with httpx.AsyncClient() as client:
-            for response in responses:
-                if response and response.status_code == httpx.codes.OK:
-                    await self.make_request(
-                        client, "post", response.request.url.host, group_id
-                    )
+        for host in hosts_to_rollback:
+            result = await self.make_request("post", host, group_id)
+            if not self._create_group_id_was_successful(result):
+                q.enqueue(
+                    self.make_request,
+                    retry=Retry(max=3, interval=10),
+                    args=("post", host, group_id),
+                )
 
-    def get_group_by_id(self, host: str, group_id: str) -> Optional[dict]:
-        """Retrieve group details by ID."""
-        try:
-            with httpx.Client() as client:
-                response = client.get(f"https://{host}{self.endpoint_group}/{group_id}")
-                if response.status_code == httpx.codes.OK:
-                    return response.json()
-        except httpx.RequestError as e:
-            logger.error(f"Request error: {e}")
-        return None

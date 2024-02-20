@@ -6,6 +6,7 @@ env/
 *.egg-info/
 dist/
 build/
+.env
 
 # Development environment ignores
 .vscode/
@@ -15,7 +16,6 @@ build/
 # Dependency management ignores
 pip-lock.txt
 pipenv.lock
-requirements.txt
 
 *.log
 *.swp
