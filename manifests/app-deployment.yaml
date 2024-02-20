@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fastapi-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fastapi
+  template:
+    metadata:
+      labels:
+        app: fastapi
+    spec:
+      containers:
+        - name: fastapi
+          image: behnambahrami1111/cluster-api-consumer:1.0
+          ports:
+            - containerPort: 8000
+          env:
+            - name: HOSTS_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: fastapi-config
+                  key: HOSTS_PATH
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fastapi-config
+data:
+  HOSTS_PATH: "127.0.0.1:8001,127.0.0.1:8002,127.0.0.1:8003"
