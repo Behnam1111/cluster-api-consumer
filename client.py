@@ -11,7 +11,7 @@ from config import Config
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-redis_conn = Redis(decode_responses=True)
+redis_conn = Redis(decode_responses=True, host="redis")
 q = Queue(connection=redis_conn)
 
 
@@ -45,6 +45,7 @@ class ClusterAPIConsumer:
     ) -> httpx.Response | None:
         async with httpx.AsyncClient(trust_env=False) as async_client:
             url = f"http://{host.strip()}{self.endpoint_group}"
+            logger.info(f"url is this {url}")
             try:
                 if method == "post":
                     return await async_client.post(url, json={"groupId": group_id})
