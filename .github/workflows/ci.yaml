@@ -28,7 +28,6 @@ jobs:
 
       - name: Run ruff
         run: |
-          source .env
           ruff check . |
           ruff format .
 
