@@ -21,22 +21,22 @@ For using this module easier, An api is exposed which is written in FastAPI.
 
 ```bash
 git clone https://github.com/Behnam1111/cluster-api-consumer
-
 ```
 
 2. Run Docker-compose
+you can easily use docker-compose to run the project.
 ```bash
 docker-compose up -d
-'''
+```
 
 3. Set up environment variables
     create an .env file in the root directory of the project and add your endpoints variables:
     example:
      HOSTS=node1.example.com,node2.example.com,node3.example.com
 
-4. Access the API
-    The documentation of the API is available at http://localhost:8000/docs
-    you can use create and delete endpoints to create and delete group_id in the cluster.
-
+## Usage
+Access the API
+The documentation of the API is available at http://localhost:8000/docs
+you can use create and delete endpoints to create and delete group_id in the cluster.
 
 
