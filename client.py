@@ -10,9 +10,9 @@ from dotenv import load_dotenv
 
 from config import Config
 from exceptions.custom_exceptions import (
-	GroupAlreadyExistsException,
-	FailedToCreateGroupInAllNodes,
-	FailedToDeleteGroupFromAllNodes,
+    GroupAlreadyExistsException,
+    FailedToCreateGroupInAllNodes,
+    FailedToDeleteGroupFromAllNodes,
 )
 from models.group_model import Group
 
@@ -88,14 +88,14 @@ class ClusterAPIConsumer:
             url = f"http://{host.strip()}{self.endpoint_group}"
             try:
                 if method == HttpMethod.post:
-                    return await async_client.post(url, json={Group.GROUP_ID: group_id})
+                    return await async_client.post(url, json={"groupId": group_id})
                 elif method == HttpMethod.delete:
                     return await async_client.delete(
-                        url, params={Group.GROUP_ID: group_id}
+                        url, params={"groupId": group_id}
                     )
                 elif method == HttpMethod.get:
                     return await async_client.get(
-                        url, params={Group.GROUP_ID: group_id}
+                        url, params={"groupId": group_id}
                     )
             except httpx.RequestError:
                 logger.error(f"Unable to make {method} request to {url}")

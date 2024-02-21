@@ -19,7 +19,7 @@ async def create_group(
 ):
     result = await client.create_group(group.group_id)
     if result:
-        return {Group.GROUP_ID: group.group_id}
+        return {"groupId": group.group_id}
 
 
 @router.delete("/v1/group/{group_id}", status_code=status.HTTP_200_OK)
@@ -28,4 +28,4 @@ async def delete_group(
 ):
     result = await client.delete_group(group_id)
     if result:
-        return {Group.GROUP_ID: group_id}
+        return {"groupId": group_id}
