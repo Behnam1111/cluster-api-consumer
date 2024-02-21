@@ -1,19 +1,21 @@
 import httpx
-import logging
 from redis import Redis
 from typing import List
 from rq import Queue, Retry
 from datetime import timedelta
 from dotenv import load_dotenv
+import logging
 
 from config import Config
+from exceptions.custom_exceptions import GroupAlreadyExistsException, FailedToCreateGroupInAllNodes, \
+    FailedToDeleteGroupFromAllNodes
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 redis_conn = Redis(decode_responses=True)
 # redis_conn = Redis(decode_responses=True, host="redis")
-q = Queue(connection=redis_conn)
+task_queue = Queue(connection=redis_conn)
 
 
 class ClusterAPIConsumer:
@@ -22,36 +24,33 @@ class ClusterAPIConsumer:
         self.endpoint_group = "/v1/group"
 
     async def create_group(self, group_id: str) -> bool:
-        successful_created_hosts: List[str] = []
+        successfully_created_hosts: List[str] = []
         for host in self.hosts:
-            response = await self._make_request("post", host, group_id)
-            if self._create_group_id_was_successful(response):
-                successful_created_hosts.append(host)
+            response = await self._make_request(method="post", host=host, group_id=group_id)
+            if response and response.status_code == httpx.codes.CREATED:
+                successfully_created_hosts.append(host)
 
             else:
-                get_response = await self._make_request("get", host, group_id)
-
-                if self._group_id_already_exists(get_response):
-                    return False
-
+                get_response = await self._make_request(method="get", host=host, group_id=group_id)
+                if get_response and get_response.status_code == httpx.codes.OK:
+                    raise GroupAlreadyExistsException()
                 else:
                     await self._rollback_created_groups(
-                        group_id, successful_created_hosts
+                        group_id, successfully_created_hosts
                     )
-                    return False
-
+                    raise FailedToCreateGroupInAllNodes()
         return True
 
     async def delete_group(self, group_id: str) -> bool:
-        successful_deleted_hosts: List[str] = []
+        successfully_deleted_hosts: List[str] = []
         for host in self.hosts:
-            response = await self._make_request("delete", host, group_id)
-            if self._delete_group_id_was_successful(response):
-                successful_deleted_hosts.append(host)
+            response = await self._make_request(method="delete", host=host, group_id=group_id)
+            if response and response.status_code == httpx.codes.OK:
+                successfully_deleted_hosts.append(host)
 
             else:
-                await self._rollback_deleted_groups(group_id, successful_deleted_hosts)
-                return False
+                await self._rollback_deleted_groups(group_id, successfully_deleted_hosts)
+                raise FailedToDeleteGroupFromAllNodes()
         return True
 
     async def _make_request(
@@ -71,59 +70,26 @@ class ClusterAPIConsumer:
                 logger.error(f"Request error: {e}")
             return None
 
-    def _create_group_id_was_successful(self, response: httpx.Response | None) -> bool:
-        if response and response.status_code == httpx.codes.CREATED:
-            return True
-        return False
-
-    def _delete_group_id_was_successful(self, response: httpx.Response | None) -> bool:
-        if response and response.status_code == httpx.codes.OK:
-            return True
-        return False
-
-    def _group_id_already_exists(
-        self, response: httpx.Response | None
-    ) -> bool:
-        if response and response.status_code == httpx.codes.OK:
-            return True
-        return False
-
     async def _rollback_created_groups(
-        self, group_id: str, hosts_to_rollback: List[str]
+            self, group_id: str, hosts_to_rollback: List[str]
     ):
         for host in hosts_to_rollback:
-            result = await self._make_request("delete", host, group_id)
-            if not self._delete_group_id_was_successful(result):
-                q.enqueue_in(
+            response = await self._make_request("delete", host, group_id)
+            if not(response and response.status_code == httpx.codes.OK):
+                task_queue.enqueue_in(
                     time_delta=timedelta(seconds=60),
                     func=self._rollback_created_groups,
                     args=(group_id, [host]),
                 )
 
-    def send_failed_rollback_to_rq(
-        self, q: Queue, rollback_method: str, group_id: str, host: str
-    ):
-        if rollback_method == "delete":
-            q.enqueue_in(
-                time_delta=timedelta(seconds=60),
-                func=self._rollback_created_groups,
-                args=(group_id, [host]),
-            )
-        else:
-            q.enqueue_in(
-                time_delta=timedelta(seconds=60),
-                func=self._rollback_deleted_groups,
-                args=(group_id, [host]),
-            )
-
     async def _rollback_deleted_groups(
-        self, group_id: str, hosts_to_rollback: List[str]
+            self, group_id: str, hosts_to_rollback: List[str]
     ):
         for host in hosts_to_rollback:
-            result = await self._make_request("post", host, group_id)
-            if not self._create_group_id_was_successful(result):
-                q.enqueue(
-                    self._make_request,
+            response = await self._make_request("post", host, group_id)
+            if not (response and response.status_code == httpx.codes.CREATED):
+                task_queue.enqueue(
+                    self._rollback_deleted_groups,
                     retry=Retry(max=3, interval=10),
                     args=("post", host, group_id),
                 )
