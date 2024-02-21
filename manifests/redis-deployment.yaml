@@ -32,6 +32,10 @@ spec:
             - name: redis-data
               mountPath: /data
           args: ["--appendonly", "yes"]
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "1G"
       volumes:
         - name: redis-data
           persistentVolumeClaim:

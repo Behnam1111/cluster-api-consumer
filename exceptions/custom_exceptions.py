@@ -5,11 +5,11 @@ class DetailedException(Exception):
     status_code = 400
 
     def __init__(
-            self,
-            debug_message,
-            status_code=None,
-            payload=None,
-            log_level: int = logging.ERROR,
+        self,
+        debug_message,
+        status_code=None,
+        payload=None,
+        log_level: int = logging.ERROR,
     ):
         Exception.__init__(self)
         self.debug_message = debug_message

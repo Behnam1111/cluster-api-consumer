@@ -2,7 +2,11 @@ import respx
 import pytest
 from httpx import codes, Response
 
-from client import ClusterAPIConsumer, FailedToCreateGroupInAllNodes, GroupAlreadyExistsException
+from client import (
+    ClusterAPIConsumer,
+    FailedToCreateGroupInAllNodes,
+    GroupAlreadyExistsException,
+)
 from exceptions.custom_exceptions import FailedToDeleteGroupFromAllNodes
 
 
@@ -138,35 +142,34 @@ class TestClusterAPIConsumer:
                 result = await self.client.create_group(self.group_id)
                 assert result is False
 
-
     @respx.mock
     async def test_rollback_on_unsuccessful_group_creation(self):
         with respx.mock:
             self._create_post_mock(
                 endpoint=f"http://{self.client.hosts[0]}{self.client.endpoint_group}",
-                status_code=codes.CREATED
+                status_code=codes.CREATED,
             )
             self._create_post_mock(
                 endpoint=f"http://{self.client.hosts[0]}{self.client.endpoint_group}",
-                status_code=codes.CREATED
+                status_code=codes.CREATED,
             )
             self._create_post_mock(
                 endpoint=f"http://{self.client.hosts[0]}{self.client.endpoint_group}",
-                status_code=codes.INTERNAL_SERVER_ERROR
+                status_code=codes.INTERNAL_SERVER_ERROR,
             )
             self._delete_mock(
                 endpoint=f"http://{self.client.hosts[0]}{self.client.endpoint_group}?groupId={self.group_id}",
-                status_code=codes.INTERNAL_SERVER_ERROR
+                status_code=codes.INTERNAL_SERVER_ERROR,
             )
 
             self._delete_mock(
                 endpoint=f"http://{self.client.hosts[1]}{self.client.endpoint_group}?groupId={self.group_id}",
-                status_code=codes.OK
+                status_code=codes.OK,
             )
             for host in self.client.hosts:
                 self._get_post_mock(
                     endpoint=f"http://{host}{self.client.endpoint_group}?groupId={self.group_id}",
-                    status_code=codes.NOT_FOUND
+                    status_code=codes.NOT_FOUND,
                 )
 
             with pytest.raises(FailedToCreateGroupInAllNodes):
@@ -178,21 +181,21 @@ class TestClusterAPIConsumer:
         with respx.mock:
             self._delete_mock(
                 endpoint=f"http://{self.client.hosts[0]}{self.client.endpoint_group}?groupId={self.group_id}",
-                status_code=codes.OK
+                status_code=codes.OK,
             )
             self._delete_mock(
                 endpoint=f"http://{self.client.hosts[0]}{self.client.endpoint_group}?groupId={self.group_id}",
-                status_code=codes.OK
+                status_code=codes.OK,
             )
             self._delete_mock(
                 endpoint=f"http://{self.client.hosts[0]}{self.client.endpoint_group}?groupId={self.group_id}",
-                status_code=codes.INTERNAL_SERVER_ERROR
+                status_code=codes.INTERNAL_SERVER_ERROR,
             )
 
             for host in self.client.hosts:
                 self._create_post_mock(
                     endpoint=f"http://{host}{self.client.endpoint_group}",
-                    status_code=codes.INTERNAL_SERVER_ERROR
+                    status_code=codes.INTERNAL_SERVER_ERROR,
                 )
 
             with pytest.raises(FailedToDeleteGroupFromAllNodes):

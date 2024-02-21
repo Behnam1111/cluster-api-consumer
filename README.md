@@ -2,41 +2,45 @@
 
 Cluster API Consumer is a reliable client module for creating and deleting group_id in a cluster. It interacts with the cluster's nodes using the Cluster API endpoints and implements error handling and rollback mechanisms to ensure reliability. The module includes unit tests, a Docker image, and Kubernetes manifests.
 
-This module designed to provide a single interface for the internal apis in each node to encapsulate the creation and deletion of group ids in the nodes and be like a central gateway to make proper actions based on failure or success of actions to ensure the consistency of nodes.
+## Purpose
+The primary purpose of the Cluster API Consumer is to act as a central gateway, encapsulating the creation and deletion of group_ids in each node of the cluster. By providing a single interface, it simplifies the process and ensures consistent actions based on the success or failure of operations.
 
-To explain this concept better, consider we have three nodes A,B and C. we want to create a group_id in all the nodes.
+To illustrate this concept further, let's consider a scenario where we have three nodes: A, B, and C. Our objective is to create a group_id across all the nodes.
 
-First Scenario: if A,B and C are all up and running, and the operation is successful, the module will create the group_id in all the nodes.
+First Scenario: In an ideal situation where all nodes (A, B, and C) are up and running, the module will successfully create the group_id in all the nodes.
 
-Second Scenario: if A,B are up and running and C id down, we start from node A and B and create the group_id in A and B. because C is down, we have to rollback the changes made in A and B by deleting the group_id in A and B.
-in this scenario A,B are still up and the rollback operation is successful.
+Second Scenario: If nodes A and B are up and running, but node C is down, the module will create the group_id in nodes A and B. However, due to the failure of node C, a rollback mechanism is triggered, and the group_id is deleted from nodes A and B. This ensures consistency even in the event of a failure.
 
-Third scenario: like the second scenario, but in this case when we want to rollback changes in node B, we will get an error because node B is down. now we have inconsistency problem because node A and C does not have the group_id and node B has the group_id. to address this problem, we leveraged RQ library to enqueue a job to delete the group_id in node B. a worker should be running to process the jobs, if the rollback operation fails, the job will be retried after a delay, by enqueuing it again. if the job succeeds, the job will be deleted from the queue. by using this approach we can be sure that the group_id will be deleted from all the nodes to achieve eventual consistency.
-
-For using this module easier, An api is exposed which is written in FastAPI.
+Third Scenario: Similar to the second scenario, but when attempting to rollback changes in node B, an error occurs because node B is down. To address this inconsistency problem, we utilize the RQ library. We enqueue a job to delete the group_id in node B, and a worker is responsible for processing the jobs. If the rollback operation fails, the job will be retried after a delay. Conversely, if the job succeeds, it will be deleted from the queue. This approach guarantees that the group_id will eventually be deleted from all nodes, achieving eventual consistency.
 
 ## Setup
+Follow these steps to set up the Cluster API Consumer:
 
-1. Clone the repository
+Clone the repository:
 
 ```bash
 git clone https://github.com/Behnam1111/cluster-api-consumer
 ```
+Run Docker Compose:
+You can easily use Docker Compose to run the project:
 
-2. Run Docker-compose
-you can easily use docker-compose to run the project.
 ```bash
 docker-compose up -d
 ```
+Set up environment variables:
+Create an .env file in the root directory of the project and add your endpoint variables. For example:
 
-3. Set up environment variables
-    create an .env file in the root directory of the project and add your endpoints variables:
-    example:
-     HOSTS=node1.example.com,node2.example.com,node3.example.com
+HOSTS=node1.example.com,node2.example.com,node3.example.com
 
 ## Usage
-Access the API
-The documentation of the API is available at http://localhost:8000/docs
-you can use create and delete endpoints to create and delete group_id in the cluster.
+To access the API, visit the documentation available at http://localhost:8000/docs. The API provides endpoints for creating and deleting group_ids in the cluster.
 
+## Kubernetes manifests (Optional)
+you can also apply kubernetes manifests in manifests folder by running the following commands:
 
+```bash
+kubectl apply -f app-deployment.yaml
+kubectl apply -f app-service.yaml
+kubectl apply -f redis-deployment.yaml
+kubectl apply -f redis-service.yaml
+```

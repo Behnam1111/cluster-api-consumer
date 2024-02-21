@@ -1,7 +1,9 @@
-from models.models import Group
 import logging
-from client import ClusterAPIConsumer
+
 from fastapi import APIRouter, Depends, status
+
+from models.group_model import Group
+from client import ClusterAPIConsumer
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

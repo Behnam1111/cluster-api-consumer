@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    HOSTS="node1.example.com node1.example.com node1.example.com"
+    HOSTS_PATH="node1.example.com node1.example.com node1.example.com"
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

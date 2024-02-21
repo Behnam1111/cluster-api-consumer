@@ -18,11 +18,15 @@ spec:
           ports:
             - containerPort: 8000
           env:
-            - name: HOSTS_PATH
+            - name: HOSTS
               valueFrom:
                 configMapKeyRef:
                   name: fastapi-config
                   key: HOSTS
+          resources:
+            limits:
+              cpu: "500m"
+              memory: 512Mi
 
 ---
 apiVersion: v1
@@ -30,4 +34,4 @@ kind: ConfigMap
 metadata:
   name: fastapi-config
 data:
-  HOSTS: "127.0.0.1:8001,127.0.0.1:8002,127.0.0.1:8003"
+  HOSTS_PATH: "node1.example.com,node2.example.com,node3.example.com"
