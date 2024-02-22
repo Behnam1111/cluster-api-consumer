@@ -6,6 +6,7 @@ from enum import Enum
 from typing import List
 from datetime import timedelta
 from dotenv import load_dotenv
+from abc import abstractmethod, ABC
 
 import httpx
 from rq import Queue
@@ -49,7 +50,17 @@ def retry(retry_count: int, retry_delay: int, max_retry_delay: int):
     return retry_wrapper
 
 
-class ClusterAPIConsumer:
+class BaseClusterAPIConsumer(ABC):
+    @abstractmethod
+    async def create_group(self, group_id: str) -> bool:
+        pass
+
+    @abstractmethod
+    async def delete_group(self, group_id: str) -> bool:
+        pass
+
+
+class ClusterAPIConsumer(BaseClusterAPIConsumer):
     def __init__(self):
         self.hosts = Config().get_hosts()
         self.endpoint_group = "/v1/group"
