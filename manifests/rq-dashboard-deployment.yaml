@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: rq-worker-app
+  name: rq-dashboard-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: rq-worker
+      app: rq-dashboard
   template:
     metadata:
       labels:
-        app: rq-worker
+        app: rq-dashboard
     spec:
       containers:
-        - name: rq-worker
+        - name: rq-dashboard
           image: python:3.12-slim
           command:
             [
               "sh",
               "-c",
-              "pip install rq && rq worker --with-scheduler --url redis://redis:6379/0",
+              "pip install rq && rq-dashboard --redis-url redis://redis:6379/0",
             ]
           env:
             - name: REDIS_URL
