@@ -12,6 +12,13 @@ spec:
       labels:
         app: fastapi
     spec:
+      initContainers:
+        - name: rq-worker
+          image: python:3.12-slim
+          command: ["sh", "-c", "pip install rq && rq worker --with-scheduler --url redis://redis:6379/0"]
+          env:
+            - name: REDIS_URL
+              value: "redis://redis:6379/0"
       containers:
         - name: fastapi
           image: behnambahrami1111/cluster-api-consumer:1.0
@@ -27,11 +34,3 @@ spec:
             limits:
               cpu: "500m"
               memory: 512Mi
-
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: fastapi-config
-data:
-  HOSTS_PATH: "node1.example.com,node2.example.com,node3.example.com"
