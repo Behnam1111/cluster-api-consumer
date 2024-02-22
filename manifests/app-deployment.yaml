@@ -27,3 +27,12 @@ spec:
             limits:
               cpu: "500m"
               memory: 512Mi
+
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fastapi-config
+data:
+  HOSTS_PATH: "127.0.0.1:8001,127.0.0.1:8002,127.0.0.1:8003"
