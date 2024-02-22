@@ -13,11 +13,11 @@ from redis import Redis
 from config import Config
 from consumer.base_client import BaseClusterAPIConsumer
 from exceptions.custom_exceptions import (
-	GroupAlreadyExistsException,
-	FailedToCreateGroupInAllNodes,
-	FailedToDeleteGroupFromAllNodes,
+    GroupAlreadyExistsException,
+    FailedToCreateGroupInAllNodes,
+    FailedToDeleteGroupFromAllNodes,
 )
-from consumer.models.client_models import HttpMethod, Group
+from consumer.data_models.client_models import HttpMethod, Group
 
 logger = logging.getLogger(__name__)
 

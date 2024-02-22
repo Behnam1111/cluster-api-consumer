@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from api import api_client
+from app.api import api_client
 from exceptions.custom_exceptions import (
     GroupAlreadyExistsException,
     FailedToCreateGroupInAllNodes,

@@ -2,10 +2,10 @@ import respx
 import pytest
 from httpx import codes, Response
 
-from client import (
+from consumer.client import (
     ClusterAPIConsumer,
-    FailedToCreateGroupInAllNodes,
     GroupAlreadyExistsException,
+    FailedToCreateGroupInAllNodes,
 )
 from exceptions.custom_exceptions import FailedToDeleteGroupFromAllNodes
 
