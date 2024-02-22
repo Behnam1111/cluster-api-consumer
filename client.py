@@ -1,12 +1,15 @@
+import asyncio
 import logging
+import functools
+
 from enum import Enum
 from typing import List
 from datetime import timedelta
+from dotenv import load_dotenv
 
 import httpx
 from rq import Queue
 from redis import Redis
-from dotenv import load_dotenv
 
 from config import Config
 from exceptions.custom_exceptions import (
@@ -14,7 +17,6 @@ from exceptions.custom_exceptions import (
     FailedToCreateGroupInAllNodes,
     FailedToDeleteGroupFromAllNodes,
 )
-from models.group_model import Group
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,24 @@ class HttpMethod(Enum):
     post = "post"
     delete = "delete"
     get = "get"
+
+
+def retry(retry_count: int, retry_delay: int, max_retry_delay: int):
+    def retry_wrapper(func):
+        @functools.wraps(func)
+        async def retry_decorator(*args, **kwargs):
+            current_retry_delay = retry_delay
+            for _ in range(retry_count):
+                result = await func(*args, **kwargs)
+                if result is not None:
+                    return result
+                await asyncio.sleep(current_retry_delay)
+                current_retry_delay = min(current_retry_delay * 2, max_retry_delay)
+            return None
+
+        return retry_decorator
+
+    return retry_wrapper
 
 
 class ClusterAPIConsumer:
@@ -45,14 +65,12 @@ class ClusterAPIConsumer:
                 logger.info(f"Group '{group_id}' created on host '{host}'")
 
             else:
-                get_response = await self._make_request(
-                    method=HttpMethod.get, host=host, group_id=group_id
+                group_id_already_exists = await self._group_id_already_exists(
+                    response, host, group_id
                 )
-                if get_response and get_response.status_code == httpx.codes.OK:
-                    logger.warning(
-                        f"Group '{group_id}' already exists on host '{host}'"
-                    )
+                if group_id_already_exists:
                     raise GroupAlreadyExistsException()
+
                 else:
                     await self._rollback_created_groups(
                         group_id, successfully_created_hosts
@@ -81,8 +99,9 @@ class ClusterAPIConsumer:
                 raise FailedToDeleteGroupFromAllNodes()
         return True
 
+    @retry(retry_count=3, retry_delay=4, max_retry_delay=10)
     async def _make_request(
-            self, method: HttpMethod, host: str, group_id: str
+        self, method: HttpMethod, host: str, group_id: str
     ) -> httpx.Response | None:
         async with httpx.AsyncClient(trust_env=False) as async_client:
             url = f"http://{host.strip()}{self.endpoint_group}"
@@ -90,19 +109,15 @@ class ClusterAPIConsumer:
                 if method == HttpMethod.post:
                     return await async_client.post(url, json={"groupId": group_id})
                 elif method == HttpMethod.delete:
-                    return await async_client.delete(
-                        url, params={"groupId": group_id}
-                    )
+                    return await async_client.delete(url, params={"groupId": group_id})
                 elif method == HttpMethod.get:
-                    return await async_client.get(
-                        url, params={"groupId": group_id}
-                    )
+                    return await async_client.get(url, params={"groupId": group_id})
             except httpx.RequestError:
                 logger.error(f"Unable to make {method} request to {url}")
             return None
 
     async def _rollback_created_groups(
-            self, group_id: str, hosts_to_rollback: List[str]
+        self, group_id: str, hosts_to_rollback: List[str]
     ):
         for host in hosts_to_rollback:
             response = await self._make_request(HttpMethod.delete, host, group_id)
@@ -115,7 +130,7 @@ class ClusterAPIConsumer:
                 )
 
     async def _rollback_deleted_groups(
-            self, group_id: str, hosts_to_rollback: List[str]
+        self, group_id: str, hosts_to_rollback: List[str]
     ):
         for host in hosts_to_rollback:
             response = await self._make_request(HttpMethod.post, host, group_id)
@@ -125,3 +140,12 @@ class ClusterAPIConsumer:
                     func=self._rollback_created_groups,
                     args=(group_id, [host]),
                 )
+
+    async def _group_id_already_exists(
+        self, response: httpx.Response | None, host: str, group_id: str
+    ) -> bool:
+        if response and response.status_code == httpx.codes.BAD_REQUEST:
+            response = await self._make_request(HttpMethod.get, host, group_id)
+            if response and response.status_code == httpx.codes.OK:
+                return True
+        return False
