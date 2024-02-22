@@ -35,6 +35,10 @@ HOSTS=node1.example.com,node2.example.com,node3.example.com
 ## Usage
 To access the API, visit the documentation available at http://localhost:8000/docs. The API provides endpoints for creating and deleting group_ids in the cluster.
 
+## RQ
+After running the docker-compose command, you can access rq dashboard at http://localhost:9181/
+
+
 ## Kubernetes manifests (Optional)
 you can also apply kubernetes manifests in manifests folder by running the following commands:
 
