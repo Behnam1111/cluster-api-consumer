@@ -43,8 +43,8 @@ After running the docker-compose command, you can access rq dashboard at http://
 you can also apply kubernetes manifests in manifests folder by running the following commands:
 
 ```bash
-kubectl apply -f app-deployment.yaml
-kubectl apply -f app-service.yaml
 kubectl apply -f redis-deployment.yaml
 kubectl apply -f redis-service.yaml
+kubectl apply -f app-deployment.yaml
+kubectl apply -f app-service.yaml
 ```
