@@ -47,4 +47,7 @@ kubectl apply -f redis-deployment.yaml
 kubectl apply -f redis-service.yaml
 kubectl apply -f app-deployment.yaml
 kubectl apply -f app-service.yaml
+kubectl apply -f rq-worker-deployment.yaml
+kubectl apply -f rq-dashboard-deployment.yaml
+
 ```
